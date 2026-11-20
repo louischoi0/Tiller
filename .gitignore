@@ -1,0 +1,37 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# App data must never be committed: hosts, server fingerprints, private keys.
+# (The app keeps these in the OS app-data folder; these rules are a safety net.)
+data.json
+data.json.*
+known_hosts.json
+keys/
+*.bak
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+dev-preview.html
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

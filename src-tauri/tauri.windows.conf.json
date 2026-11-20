@@ -1,0 +1,17 @@
+{
+  "app": {
+    "windows": [
+      {
+        "title": "SSH Deck",
+        "width": 1200,
+        "height": 760,
+        "minWidth": 720,
+        "minHeight": 420,
+        "dragDropEnabled": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false
+      }
+    ]
+  }
+}
