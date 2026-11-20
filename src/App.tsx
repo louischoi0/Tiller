@@ -904,7 +904,7 @@ export default function App() {
           <div className="workspace" onMouseDownCapture={() => current && setFocusArea("main")}>
             {tabs.length === 0 && (
               <div className="welcome">
-                <h1>SSH Deck</h1>
+                <h1>Tiller</h1>
                 <p>keyboard-first ssh client</p>
                 <div className="keys">
                   {(

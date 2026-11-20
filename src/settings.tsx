@@ -449,7 +449,7 @@ function AboutSection() {
   return (
     <>
       <div className="about">
-        <h2>SSH Deck</h2>
+        <h2>Tiller</h2>
         <p className="muted">Version 0.1.0</p>
       </div>
       <Group title="Security">

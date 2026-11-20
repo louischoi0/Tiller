@@ -2,7 +2,7 @@
   "app": {
     "windows": [
       {
-        "title": "SSH Deck",
+        "title": "Tiller",
         "width": 1200,
         "height": 760,
         "minWidth": 720,

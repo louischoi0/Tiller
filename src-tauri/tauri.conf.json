@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "SSH Deck",
+  "productName": "Tiller",
   "version": "0.1.0",
   "identifier": "com.sshdeck.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "SSH Deck",
+        "title": "Tiller",
         "width": 1200,
         "height": 760,
         "minWidth": 720,

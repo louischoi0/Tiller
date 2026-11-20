@@ -1,4 +1,4 @@
-/* SSH Deck styles. Tokens and rules follow DESIGN.md — change the guide first, then this file.
+/* Tiller styles. Tokens and rules follow DESIGN.md — change the guide first, then this file.
    Theme is chosen by <html data-theme="dark|light"> (set from settings). */
 :root,
 :root[data-theme="dark"] {

@@ -1,4 +1,4 @@
-//! Minimal SSH server for trying SSH Deck without a real server.
+//! Minimal SSH server for trying Tiller without a real server.
 //!
 //!   cargo run --example test_server [port]     (listens on 127.0.0.1:2223 by default)
 //!
@@ -92,7 +92,7 @@ impl server::Handler for TestServer {
     async fn shell_request(&mut self, channel: ChannelId, session: &mut Session) -> Result<(), Self::Error> {
         let _ = session.channel_success(channel);
         self.line.insert(channel, String::new());
-        send(session, channel, &format!("SSH Deck test server. Hello, {}! Type 'help'.\r\n$ ", self.user));
+        send(session, channel, &format!("Tiller test server. Hello, {}! Type 'help'.\r\n$ ", self.user));
         Ok(())
     }
 

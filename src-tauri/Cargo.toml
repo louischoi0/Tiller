@@ -1,7 +1,7 @@
 [package]
-name = "sshdeck"
+name = "tiller"
 version = "0.1.0"
-description = "Personal SSH client"
+description = "Tiller: keyboard-first SSH client"
 authors = ["you"]
 edition = "2024"
 

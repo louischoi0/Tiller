@@ -16,7 +16,7 @@ fn key_info(id: String, name: String, key: &PrivateKey, encrypted: bool) -> Res<
         id,
         name,
         algorithm: key.algorithm().as_str().to_string(),
-        public_key: format!("{public} sshdeck"),
+        public_key: format!("{public} tiller"),
         encrypted,
     })
 }
