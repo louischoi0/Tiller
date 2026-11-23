@@ -161,11 +161,28 @@ fn forward_active(sessions: State<'_, Arc<Sessions>>) -> Vec<String> {
     sessions.forward_active()
 }
 
+/// Opens a link from terminal output (Ctrl/Cmd+click) in the default browser.
+/// Only http(s) links, so server output can't launch local files or other handlers.
+#[tauri::command]
+fn open_url(app: AppHandle, url: String) -> Res<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let lower = url.to_ascii_lowercase();
+    if !(lower.starts_with("http://") || lower.starts_with("https://")) {
+        return Err("Only http and https links can be opened".into());
+    }
+    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let dir = app.path().app_data_dir()?;
+            // Hosts, keys and fingerprints live in one fixed folder (%APPDATA%\com.sshdeck.app,
+            // ~/Library/Application Support/com.sshdeck.app). It doesn't depend on the version or
+            // the build: the dev build (identifier "<release>.dev", own WebView folder) and every
+            // release read the same files. Passwords are in the OS credential store either way.
+            let dir = app.path().data_dir()?.join(store::DATA_FOLDER);
             app.manage(Store::open(dir)?);
             app.manage(Arc::new(Sessions::default()));
             Ok(())
@@ -190,6 +207,7 @@ pub fn run() {
             forward_start,
             forward_stop,
             forward_active,
+            open_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

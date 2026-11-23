@@ -15,12 +15,15 @@ import {
   applyTerminalColors,
   applyTerminalSettings,
   attach,
+  copySelection,
   createPane,
   disposePane,
   focusPane,
   getHostId,
+  getSelection,
   getStatus,
   isMac,
+  pasteClipboard,
   subscribe,
 } from "./terminals";
 import { HostDialog } from "./dialogs";
@@ -211,7 +214,8 @@ function PaneView({
   onClose: () => void;
 }) {
   const body = useRef<HTMLDivElement>(null);
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  // hasSelection is read when the menu opens: Copy only appears with something to copy.
+  const [menu, setMenu] = useState<{ x: number; y: number; hasSelection: boolean } | null>(null);
   useEffect(() => attach(paneId, body.current!), [paneId]);
   return (
     <div
@@ -220,7 +224,7 @@ function PaneView({
       onMouseDownCapture={onFocus}
       onContextMenu={(e) => {
         e.preventDefault();
-        setMenu({ x: e.clientX, y: e.clientY });
+        setMenu({ x: e.clientX, y: e.clientY, hasSelection: getSelection(paneId) !== "" });
       }}
     >
       <div className="pane-body" ref={body} />
@@ -230,6 +234,9 @@ function PaneView({
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
+            ...(menu.hasSelection ? [{ label: "Copy", onPick: () => copySelection(paneId) }] : []),
+            { label: "Paste", onPick: () => pasteClipboard(paneId) },
+            "separator",
             { label: "Split right", onPick: () => onSplit("row") },
             { label: "Split down", onPick: () => onSplit("column") },
             "separator",
@@ -343,6 +350,22 @@ export default function App() {
         applyTerminalSettings(st.terminal);
       })
       .catch((e) => setToast(String(e)));
+  }, []);
+
+  useEffect(() => {
+    // Another Tiller window (e.g. the dev build beside the installed app) may have changed
+    // the hosts. Reload them on focus so this window never saves an outdated list over them.
+    const reload = () =>
+      api
+        .storeGet()
+        .then((s) => {
+          setCollections(s.collections);
+          setHosts(s.hosts.map((h) => ({ ...h, collectionId: h.collectionId ?? null })));
+          setKeys(s.keys);
+        })
+        .catch(() => {});
+    window.addEventListener("focus", reload);
+    return () => window.removeEventListener("focus", reload);
   }, []);
 
   useEffect(() => {

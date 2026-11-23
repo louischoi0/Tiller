@@ -9,9 +9,14 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 const SERVICE: &str = "sshdeck";
+/// Data folder name under the OS app-data directory. Fixed (it was the original
+/// identifier), so upgrades and the dev build always find the same hosts.
+pub const DATA_FOLDER: &str = "com.sshdeck.app";
 
+// Every field has a default so a file written by an older or newer Tiller still loads
+// (missing fields are filled in, unknown ones are ignored) instead of being thrown away.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct Host {
     pub id: String,
     pub name: String,
@@ -21,7 +26,6 @@ pub struct Host {
     pub auth: String, // "password" | "key"
     pub key_id: Option<String>,
     /// Collection (folder) the host sits in; `None` = top level.
-    #[serde(default)]
     pub collection_id: Option<String>,
 }
 
@@ -63,6 +67,21 @@ pub struct Forward {
     pub remote_port: u16,
 }
 
+impl Default for Host {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: String::new(),
+            address: String::new(),
+            port: 22,
+            username: String::new(),
+            auth: "password".into(),
+            key_id: None,
+            collection_id: None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(default)]
 pub struct Data {
@@ -87,31 +106,78 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
     fs::rename(&tmp, path).map_err(|e| format!("Save failed: {e}"))
 }
 
-fn read_json<T: for<'de> Deserialize<'de> + Default>(path: &Path) -> T {
-    fs::read(path)
-        .ok()
-        .and_then(|b| serde_json::from_slice(&b).ok())
-        .unwrap_or_default()
+fn bak_path(path: &Path) -> PathBuf {
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(".bak");
+    path.with_file_name(name)
+}
+
+/// `None`: the file doesn't exist. `Some(Err)`: it exists but can't be read or parsed.
+fn try_read<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<Result<T, String>> {
+    match fs::read(path) {
+        Ok(b) => Some(serde_json::from_slice(&b).map_err(|e| e.to_string())),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => Some(Err(e.to_string())),
+    }
+}
+
+/// Loads a data file without ever losing it: an unreadable file is kept aside as
+/// `<name>.broken-<unix time>` and the last backup is used instead.
+fn load<T: for<'de> Deserialize<'de> + Default>(path: &Path) -> T {
+    match try_read(path) {
+        Some(Ok(v)) => return v,
+        Some(Err(e)) => {
+            let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+            let mut name = path.file_name().unwrap_or_default().to_os_string();
+            name.push(format!(".broken-{secs}"));
+            let _ = fs::copy(path, path.with_file_name(name));
+            eprintln!("{}: {e}; using the backup", path.display());
+        }
+        None => {}
+    }
+    match try_read(&bak_path(path)) {
+        Some(Ok(v)) => v,
+        _ => T::default(),
+    }
+}
+
+/// Saves `value`, first keeping the previous file as `<name>.bak`.
+fn save<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
+    let json = serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?;
+    if matches!(try_read::<serde_json::Value>(path), Some(Ok(_))) {
+        let _ = fs::copy(path, bak_path(path));
+    }
+    write_atomic(path, &json)
 }
 
 impl Store {
     pub fn open(dir: PathBuf) -> Result<Self, String> {
         fs::create_dir_all(dir.join("keys")).map_err(|e| format!("Can't create the data folder: {e}"))?;
-        let data = read_json(&dir.join("data.json"));
-        let known = read_json(&dir.join("known_hosts.json"));
+        let data = load(&dir.join("data.json"));
+        let known = load(&dir.join("known_hosts.json"));
         Ok(Self { dir, data: Mutex::new(data), known: Mutex::new(known) })
     }
 
+    /// Current data, re-read from disk so changes saved by another Tiller window
+    /// (e.g. the dev build next to the installed app) show up.
     pub fn snapshot(&self) -> Data {
-        self.data.lock().unwrap().clone()
+        let mut data = self.data.lock().unwrap();
+        if let Some(Ok(d)) = try_read(&self.dir.join("data.json")) {
+            *data = d;
+        }
+        data.clone()
     }
 
-    /// Applies `f` to the data and persists it.
+    /// Applies `f` to the data and persists it. The file is re-read first, so a save
+    /// only changes what `f` changes and never rolls back another window's edits.
     pub fn update(&self, f: impl FnOnce(&mut Data)) -> Result<(), String> {
+        let path = self.dir.join("data.json");
         let mut data = self.data.lock().unwrap();
+        if let Some(Ok(d)) = try_read(&path) {
+            *data = d;
+        }
         f(&mut data);
-        let json = serde_json::to_vec_pretty(&*data).map_err(|e| e.to_string())?;
-        write_atomic(&self.dir.join("data.json"), &json)
+        save(&path, &*data)
     }
 
     pub fn host(&self, id: &str) -> Result<Host, String> {
@@ -133,13 +199,16 @@ impl Store {
     }
 
     pub fn set_known_fingerprint(&self, host_id: &str, fp: Option<String>) -> Result<(), String> {
+        let path = self.dir.join("known_hosts.json");
         let mut known = self.known.lock().unwrap();
+        if let Some(Ok(k)) = try_read(&path) {
+            *known = k;
+        }
         match fp {
             Some(fp) => known.insert(host_id.to_string(), fp),
             None => known.remove(host_id),
         };
-        let json = serde_json::to_vec_pretty(&*known).map_err(|e| e.to_string())?;
-        write_atomic(&self.dir.join("known_hosts.json"), &json)
+        save(&path, &*known)
     }
 }
 

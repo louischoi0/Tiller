@@ -28,6 +28,9 @@ vim처럼 지금 키 입력이 어디로 가는지가 항상 분명해야 한다
 `TERMINAL` 모드에서는 **Alt 조합만** 앱이 가로채고, 나머지는 전부 서버로 보낸다.
 (vim의 `Ctrl+W`는 셸에서 "단어 지우기"로 매일 쓰이므로 쓰지 않는다.)
 
+클립보드는 터미널 관례를 따른다: 복사 `Ctrl+Shift+C` 또는 `Ctrl+Insert`(선택한 글자가 있을 때만, 없으면 서버로 보낸다), 붙여넣기 `Ctrl+Shift+V` 또는 `Shift+Insert`. macOS는 `Cmd+C`/`Cmd+V`.
+터미널 창의 오른쪽 클릭 메뉴 맨 위에 `Copy`(선택이 있을 때만)와 `Paste`가 있다. 링크는 `Ctrl+클릭`(macOS `Cmd+클릭`)으로 브라우저에서 연다.
+
 ## 3. 키 맵
 
 모든 동작은 **명령**이다([src/commands.ts](src/commands.ts)). 아래는 기본 단축키이고, 전부 Settings > Keyboard에서 바꿀 수 있다.

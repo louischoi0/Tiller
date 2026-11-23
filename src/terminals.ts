@@ -2,6 +2,7 @@
 // (which remounts components) never destroys a live session.
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { listen } from "@tauri-apps/api/event";
 import { api, DEFAULT_SETTINGS, Host, newId, TerminalSettings } from "./api";
@@ -195,6 +196,15 @@ export function createPane(host: Host): string {
   });
   const fit = new FitAddon();
   term.loadAddon(fit);
+  // URLs in output open in the local browser on Ctrl+click (Cmd+click on macOS).
+  // A plain click does nothing, so selecting text over a link still works.
+  // If nothing can open it, ignore it quietly.
+  term.loadAddon(
+    new WebLinksAddon((ev, uri) => {
+      if (!(isMac ? ev.metaKey : ev.ctrlKey)) return;
+      api.openUrl(uri).catch(() => {});
+    }),
+  );
   const p: Pane = {
     id,
     hostId: host.id,
@@ -221,6 +231,16 @@ export function createPane(host: Host): string {
       if (sel) navigator.clipboard.writeText(sel).catch(() => {});
       ev.preventDefault();
       return false;
+    }
+    // Ctrl+Insert copies the mouse selection (classic Windows/xterm). With nothing
+    // selected it falls through to the server like any other key.
+    if (ev.ctrlKey && !ev.shiftKey && !ev.altKey && ev.key === "Insert") {
+      const sel = term.getSelection();
+      if (sel) {
+        navigator.clipboard.writeText(sel).catch(() => {});
+        ev.preventDefault();
+        return false;
+      }
     }
     // Let the webview's native paste event reach xterm instead of sending ^V.
     if ((ev.ctrlKey && ev.shiftKey && key === "v") || (ev.shiftKey && ev.key === "Insert")) return false;
@@ -268,6 +288,30 @@ export function disposePane(id: string) {
   p.term.dispose();
   p.el.remove();
   notify();
+}
+
+/** Selected text in a pane ("" when nothing is selected). */
+export function getSelection(id: string): string {
+  return panes.get(id)?.term.getSelection() ?? "";
+}
+
+/** Copies a pane's selection to the clipboard. */
+export function copySelection(id: string) {
+  const sel = getSelection(id);
+  if (sel) navigator.clipboard.writeText(sel).catch(() => {});
+}
+
+/** Pastes the clipboard into a pane, the same way Ctrl+Shift+V does (bracketed paste aware). */
+export function pasteClipboard(id: string) {
+  const p = panes.get(id);
+  if (!p) return;
+  navigator.clipboard
+    .readText()
+    .then((text) => {
+      if (text) p.term.paste(text);
+      p.term.focus();
+    })
+    .catch(() => {});
 }
 
 export function focusPane(id: string) {

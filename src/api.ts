@@ -97,6 +97,7 @@ export const newId = () => crypto.randomUUID();
 
 export const api = {
   storeGet: () => invoke<Store>("store_get"),
+  openUrl: (url: string) => invoke<void>("open_url", { url }),
   librarySave: (collections: Collection[], hosts: Host[]) => invoke<void>("library_save", { collections, hosts }),
   settingsSave: (settings: Settings) => invoke<void>("settings_save", { settings }),
 
